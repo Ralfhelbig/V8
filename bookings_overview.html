@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repair Bookings Overview</title>
+    <style>
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; margin: 20px; background-color: #f8f9fa; color: #212529; font-size: 16px; line-height: 1.5; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; background-color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 1px solid #dee2e6; }
+        th, td { border-bottom: 1px solid #dee2e6; padding: 10px 12px; text-align: left; vertical-align: middle; }
+        th { background-color: #e9ecef; font-weight: 600; color: #495057; }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        tr:hover { background-color: #e9ecef; }
+        .action-button { display: inline-block; margin: 0 5px 15px 0; padding: 9px 14px; color: white; text-decoration: none; border-radius: 4px; border: none; cursor: pointer; font-size: 0.95em; }
+        h1 { color: #343a40; border-bottom: 1px solid #ced4da; padding-bottom: 8px; margin-bottom: 20px; font-weight: 600; }
+        .alert { padding: 15px; margin-bottom: 20px; border: 1px solid transparent; border-radius: 5px; font-size: 0.95em; }
+        .alert-success { color: #0f5132; background-color: #d1e7dd; border-color: #badbcc; }
+        .alert-error { color: #842029; background-color: #f8d7da; border-color: #f5c2c7; }
+        .no-results td { text-align: center; padding: 20px; color: #6c757d; font-style: italic; }
+        .actions { white-space: nowrap; }
+        .actions a.action-button-edit { /* Renamed for clarity if needed */
+            margin-right: 5px; 
+            padding: 6px 10px; /* Adjusted padding */
+            font-size:0.9em; 
+            background-color: #ffc107; 
+            color:black; 
+            vertical-align: middle;
+            text-decoration: none; /* Ensure it looks like a button */
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+        .button-group { margin-bottom: 25px; }
+        .search-form { margin-bottom: 20px; padding: 15px; background-color: #e9ecef; border-radius: 5px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .search-form label { font-weight: 500; color: #495057; }
+        .search-form input[type=text] { padding: 9px 12px; border: 1px solid #ced4da; border-radius: 4px; min-width: 250px; font-size: 0.95em; flex-grow: 1; }
+        .search-form button[type=submit] { padding: 9px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.95em; }
+        .search-form a.clear-search { color: #dc3545; text-decoration: none; font-size: 0.9em; }
+        .date-col { white-space: nowrap; }
+        .age-col { font-size: 0.9em; color: #495057; text-align: right; }
+        .notes-preview { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9em; color: #666; }
+        
+        /* Status text styling */
+        .status-text { font-weight: 500; }
+        .status-Booked-In { color: #6c757d; } /* Example: Gray */
+        .status-In-Progress { color: #007bff; } /* Example: Blue */
+        .status-Awaiting-Part { color: #ffc107; } /* Example: Yellow/Orange */
+        .status-Ready-for-Collection { color: #28a745; } /* Example: Green */
+        .status-Completed { color: #17a2b8; } /* Example: Teal */
+        .status-Cancelled { color: #dc3545; } /* Example: Red */
+
+    </style>
+</head>
+<body>
+    <h1>Repair Bookings Overview</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %}
+        {% for category, message in messages %} <div class="alert alert-{{ category }}">{{ message }}</div> {% endfor %}
+    {% endif %} {% endwith %}
+
+    <div class="button-group">
+        <a href="{{ url_for('add_booking_form') }}" class="action-button" style="background-color: #fd7e14;">Add New Booking</a>
+        <a href="{{ url_for('index') }}" class="action-button" style="background-color: #6c757d;">Back to Inventory</a>
+    </div>
+
+    <form class="search-form" method="GET" action="{{ url_for('bookings_overview') }}">
+        <label for="search_booking">Search Bookings:</label>
+        <input type="text" id="search_booking" name="search_booking" value="{{ search_term or '' }}" placeholder="Name, Model, ID, GPC, ZIR...">
+        <button type="submit">Search</button>
+        {% if search_term %}<a href="{{ url_for('bookings_overview') }}" class="clear-search">(Clear Search)</a>{% endif %}
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th class="date-col">Booked In</th>
+                <th>Customer</th>
+                <th>Device</th>
+                <th>GPC #</th>
+                <th>ZIR Ref.</th>
+                <th>Status</th>
+                <th class="age-col">Age (M)</th>
+                <th>Notes</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if bookings %}
+                {% for booking in bookings %}
+                <tr>
+                    <td>{{ booking['id'] }}</td>
+                    <td class="date-col">{{ booking['booking_date'][:16] | default('N/A', true) }}</td>
+                    <td>{{ booking['customer_name'] | default('-', true) }}</td>
+                    <td>{{ booking['device_model'] | default('-', true) }}</td>
+                    <td>{{ booking.gpc_number or '-' }}</td>
+                    <td>{{ booking.zir_reference or '-' }}</td>
+                    
+                    {# Status wordt nu alleen als tekst getoond #}
+                    <td>
+                        <span class="status-text status-{{ booking.status | replace(' ', '-') if booking.status else 'Unknown' }}">
+                            {{ booking.status | default('N/A') }}
+                        </span>
+                    </td>
+
+                    <td class="age-col">{{ booking.months_in_system if booking.months_in_system is defined else 'N/A' }}</td>
+                    <td class="notes-preview" title="{{ booking.notes or 'No notes' }}">
+                        {{ (booking.notes or '')[:30] }}{% if (booking.notes or '')|length > 30 %}...{% endif %}
+                    </td>
+                    <td class="actions">
+                        <a href="{{ url_for('edit_booking_form', booking_id=booking.id) }}" class="action-button-edit">Edit</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr class="no-results">
+                     <td colspan="10"> 
+                         {% if search_term %} No bookings found matching '{{ search_term }}'.
+                         {% else %} No repair bookings found. <a href="{{ url_for('add_booking_form') }}">Add a booking</a>.
+                         {% endif %}
+                     </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</body>
+</html>

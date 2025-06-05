@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Summary</title>
+    <style>
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; margin: 20px; background-color: #f8f9fa; color: #212529; font-size: 16px; line-height: 1.5; }
+        h1 { color: #343a40; border-bottom: 1px solid #ced4da; padding-bottom: 8px; margin-bottom: 20px; font-weight: 600; }
+        h2 { color: #495057; margin: 30px 0 10px; font-size: 1.3em; font-weight: 600; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; background-color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 1px solid #dee2e6; }
+        th, td { border-bottom: 1px solid #dee2e6; padding: 10px 12px; text-align: left; vertical-align: middle; font-size: 0.95em; }
+        th { background-color: #e9ecef; font-weight: 600; color: #495057; }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        tr.clickable-row:hover { background-color: #e0e0e0; cursor: pointer; }
+        .filter-section { margin-bottom: 20px; padding: 15px; background-color: #e9ecef; border-radius: 5px; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 15px; }
+        .filter-group label { font-weight: 500; margin-right: 8px; color: #495057; font-size: 0.9em; display: block; margin-bottom: 4px;}
+        .filter-group select, .filter-group input[type=text], .filter-group button { padding: 7px 10px; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.9em; background-color: white; box-sizing: border-box; width: 100%; }
+        .filter-group { flex: 1; min-width: 180px; }
+        .filter-group a.clear-filter { margin-left: 10px; color: #dc3545; text-decoration: none; font-size: 0.9em; align-self: center; }
+        .filter-group button { width: auto; } 
+        .action-button { display: inline-block; margin: 0 5px 15px 0; padding: 9px 14px; color: white; text-decoration: none; border-radius: 4px; border: none; cursor: pointer; font-size: 0.95em; }
+        .button-group { margin-bottom: 25px; border-bottom: 1px solid #dee2e6; padding-bottom: 20px; }
+        .alert { padding: 15px; margin-bottom: 20px; border: 1px solid transparent; border-radius: 5px; font-size: 0.95em; }
+        .alert-success { color: #0f5132; background-color: #d1e7dd; border-color: #badbcc; }
+        .alert-error { color: #842029; background-color: #f8d7da; border-color: #f5c2c7; }
+        .alert-warning { color: #664d03; background-color: #fff3cd; border-color: #ffecb5; }
+        .no-results td { text-align: center; padding: 20px; color: #6c757d; font-style: italic; }
+        .number-col { font-family: monospace; font-size: 0.9em; color: #333; }
+        .count-col { text-align: right; }
+        .low-stock { color: orange; font-weight: bold; }
+        .no-stock { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>Inventory Summary</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+             <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if show_old_stock_alert %}
+    <div class="alert alert-warning">
+        <strong>Warning:</strong> Stock orders older than {{ OLD_STOCK_THRESHOLD_MONTHS }} months have 'Available' or 'Reserved' items. Review <a href="{{ url_for('orders_overview') }}">Stock Orders</a>.
+    </div>
+    {% endif %}
+
+    <div class="button-group">
+        <a href="{{ url_for('add_part_type_form') }}" class="action-button" style="background-color: #28a745;">Add New Part Type</a>
+        <a href="{{ url_for('part_types_overview') }}" class="action-button" style="background-color: #e83e8c;">Manage Part Types</a>
+        <a href="{{ url_for('receive_stock_form') }}" class="action-button" style="background-color: #007bff;">Receive Stock</a>
+        <a href="{{ url_for('receive_stock_fast_form') }}" class="action-button" style="background-color: #007bff; margin-left:5px;">Fast Receive Stock</a>
+        <a href="{{ url_for('orders_overview') }}" class="action-button" style="background-color: #17a2b8;">View Stock Orders</a>
+        <a href="{{ url_for('bookings_overview') }}" class="action-button" style="background-color: #ffc107; color: black;">View Repair Bookings</a>
+        <a href="{{ url_for('add_booking_form') }}" class="action-button" style="background-color: #fd7e14;">Add New Booking</a>
+    </div>
+
+    <h2>Filter Part Type Summary</h2>
+    <div class="filter-section">
+         <form method="GET" action="{{ url_for('index') }}" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
+            {# Nieuw zoekveld toegevoegd #}
+            <div class="filter-group" style="flex-basis: 100%; margin-bottom: 10px;"> 
+                <label for="search_term_parts">Search (Artikel# or Part#):</label>
+                <input type="text" name="search_term_parts" id="search_term_parts" value="{{ current_filters.search_term_parts or '' }}" placeholder="Enter Artikelnummer or Part Number...">
+            </div>
+
+            <div class="filter-group">
+                <label for="filter_brand">Brand:</label>
+                <input type="text" name="brand" id="filter_brand" value="{{ current_filters.brand or '' }}" placeholder="e.g., Apple">
+            </div>
+            <div class="filter-group">
+                <label for="filter_model">Model:</label>
+                <input type="text" name="model" id="filter_model" value="{{ current_filters.model or '' }}" placeholder="e.g., iPhone 12">
+            </div>
+            <div class="filter-group">
+                <label for="filter_type">Category:</label>
+                <select name="type" id="filter_type">
+                    <option value="">-- All Categories --</option>
+                    {% for cat in part_type_categories_filter %}
+                    <option value="{{ cat }}" {% if current_filters.type == cat %}selected{% endif %}>{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <button type="submit" class="action-button" style="background-color: #007bff; margin-top:0; margin-bottom:0; padding-top: 8px; padding-bottom: 8px;">Apply&nbsp;Filters</button>
+            </div>
+             {% if current_filters.brand or current_filters.model or current_filters.type or current_filters.search_term_parts %}
+                <div class="filter-group" style="min-width: auto;"> 
+                    <a href="{{ url_for('index') }}" class="clear-filter">(Clear&nbsp;Filters)</a>
+                </div>
+             {% endif %}
+        </form>
+    </div>
+
+    <h2>Part Types Stock Overview</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Part Name</th>
+                <th class="number-col">Part Number (SKU)</th>
+                <th class="number-col">Artikelnummer</th>
+                <th>Brand</th>
+                <th>Model</th>
+                <th>Category</th>
+                <th>Default Location</th>
+                <th class="count-col">Total Stock</th>
+                <th class="count-col">Available</th>
+                <th class="count-col">Reserved</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if part_type_summary %}
+                {% for pt_summary in part_type_summary %}
+                <tr class="clickable-row" onclick="window.location='{{ url_for('part_type_details', part_type_id=pt_summary.id) | replace("'", "\\'") }}';">
+                    <td>{{ pt_summary['part_name'] }}</td>
+                    <td class="number-col">{{ pt_summary['part_number'] | default('-', true) }}</td>
+                    <td class="number-col">{{ pt_summary['artikelnummer'] | default('-', true) }}</td>
+                    <td>{{ pt_summary['brand'] | default('-', true) }}</td>
+                    <td>{{ pt_summary['model'] | default('-', true) }}</td>
+                    <td>{{ pt_summary['part_type'] | default('-', true) }}</td>
+                    <td>{{ pt_summary['storage_location'] | default('-', true) }}</td>
+                    <td class="count-col 
+                        {% if (pt_summary.total_stock or 0) == 0 %}no-stock{% endif %}">
+                        {{ pt_summary.total_stock | default(0) }}
+                    </td>
+                    <td class="count-col 
+                        {% if (pt_summary.available_stock or 0) == 0 and (pt_summary.total_stock or 0) > 0 %}low-stock{% elif (pt_summary.available_stock or 0) == 0 %}no-stock{% endif %}">
+                        {{ pt_summary.available_stock | default(0) }}
+                    </td>
+                    <td class="count-col">{{ pt_summary.reserved_stock | default(0) }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr class="no-results">
+                    <td colspan="10">
+                        {% if current_filters.brand or current_filters.model or current_filters.type or current_filters.search_term_parts %}
+                        No part types found matching your filters. <a href="{{ url_for('index') }}">Clear filters</a>.
+                        {% else %}
+                        No part types found in the inventory. <a href="{{ url_for('add_part_type_form') }}">Add a part type</a>.
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</body>
+</html>

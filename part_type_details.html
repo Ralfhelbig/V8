@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Details for Part Type: {{ part_type_info.part_name if part_type_info else 'Unknown' }}</title>
+    <style>
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; margin: 20px; background-color: #f8f9fa; color: #212529; font-size: 16px; line-height: 1.5; }
+        h1 { color: #343a40; border-bottom: 1px solid #ced4da; padding-bottom: 8px; margin-bottom: 10px; font-weight: 600; }
+        h2 { color: #495057; margin: 20px 0 10px; font-size: 1.3em; font-weight: 600; }
+        .part-info { background-color: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 20px; font-size: 0.95em; }
+        .part-info p { margin: 5px 0; }
+        .part-info strong { display: inline-block; min-width: 120px; color: #343a40;}
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; background-color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 1px solid #dee2e6; }
+        th, td { border-bottom: 1px solid #dee2e6; padding: 10px 12px; text-align: left; vertical-align: middle; font-size: 0.95em; }
+        th { background-color: #e9ecef; font-weight: 600; color: #495057; }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        tr:hover { background-color: #e0e0e0; }
+        .action-button, .nav-link { display: inline-block; margin-right:10px; margin-bottom: 20px; padding: 9px 14px; color: white; text-decoration: none; border-radius: 4px; border: none; cursor: pointer; font-size: 0.95em; }
+        .nav-link { background-color: #6c757d; }
+        .status-Available { color: green; font-weight: 500; }
+        .status-Reserved { color: #fd7e14; font-weight: 500; }
+        .status-Installed { color: #007bff; font-weight: 500; } /* Changed from purple to blue for consistency */
+        .status-Broken, .status-Returned { color: red; font-weight: 500; }
+        .status-form { display: inline-flex; align-items: center; gap: 5px; }
+        .status-form select { padding: 4px 6px; font-size: 0.85em; border-radius: 3px; border: 1px solid #ced4da; }
+        .status-form button { padding: 4px 8px; font-size: 0.85em; background-color: #007bff; border: none; color: white; border-radius: 3px; cursor: pointer; }
+        .alert { padding: 15px; margin-bottom: 20px; border: 1px solid transparent; border-radius: 5px; font-size: 0.95em; }
+        .alert-success { color: #0f5132; background-color: #d1e7dd; border-color: #badbcc; }
+        .alert-error { color: #842029; background-color: #f8d7da; border-color: #f5c2c7; }
+        .no-results td { text-align: center; padding: 20px; color: #6c757d; font-style: italic; }
+        /* Filter section styles */
+        .filter-section { margin-bottom: 20px; padding: 15px; background-color: #e9ecef; border-radius: 5px; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 15px; }
+        .filter-group { flex: 1; min-width: 180px; }
+        .filter-group label { font-weight: 500; margin-right: 8px; color: #495057; font-size: 0.9em; display: block; margin-bottom: 4px;}
+        .filter-group select, .filter-group input[type=text], .filter-group input[type=date], .filter-group button { padding: 7px 10px; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.9em; background-color: white; box-sizing: border-box; width: 100%; }
+        .filter-group button { width: auto; }
+        .filter-group a.clear-filter { margin-left: 10px; color: #dc3545; text-decoration: none; font-size: 0.9em; align-self: center; }
+        .number-col { font-family: monospace; font-size: 0.9em; color: #333; }
+        .age-col { text-align: right; }
+    </style>
+</head>
+<body>
+    <a href="{{ url_for('index') }}" class="nav-link">Back to Inventory Summary</a>
+
+    {% if part_type_info %}
+        <h1>Details for: {{ part_type_info.part_name }}</h1>
+        <div class="part-info">
+            <p><strong>Part Type ID:</strong> {{ part_type_info.id }}</p>
+            <p><strong>Part Name:</strong> {{ part_type_info.part_name }}</p>
+            <p><strong>SKU/Part Number:</strong> <span class="number-col">{{ part_type_info.part_number | default('N/A') }}</span></p>
+            <p><strong>Artikelnummer:</strong> <span class="number-col">{{ part_type_info.artikelnummer | default('N/A') }}</span></p>
+            <p><strong>Brand:</strong> {{ part_type_info.brand | default('N/A') }}</p>
+            <p><strong>Model:</strong> {{ part_type_info.model | default('N/A') }}</p>
+            <p><strong>Category:</strong> {{ part_type_info.part_type | default('N/A') }}</p>
+            <p><strong>Default Storage:</strong> {{ part_type_info.storage_location | default('N/A') }}</p>
+            <p><strong>Description:</strong> {{ part_type_info.description | default('N/A') }}</p>
+        </div>
+    {% else %}
+        <h1>Part Type Details Not Found</h1>
+    {% endif %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+             <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <h2>Filter Individual Items</h2>
+    <div class="filter-section">
+        <form method="GET" action="{{ url_for('part_type_details', part_type_id=part_type_info.id) }}" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; width: 100%;">
+            <div class="filter-group">
+                <label for="search_stock_order">Stock Order No.:</label>
+                <input type="text" name="search_stock_order" id="search_stock_order" value="{{ current_filters.search_stock_order or '' }}" placeholder="Order Number">
+            </div>
+            <div class="filter-group">
+                <label for="search_gpc">GPC Number:</label>
+                <input type="text" name="search_gpc" id="search_gpc" value="{{ current_filters.search_gpc or '' }}" placeholder="GPC Number">
+            </div>
+            <div class="filter-group">
+                <label for="search_booking_id">Booking ID:</label>
+                <input type="text" name="search_booking_id" id="search_booking_id" value="{{ current_filters.search_booking_id or '' }}" placeholder="Booking ID">
+            </div>
+            <div class="filter-group">
+                <label for="search_date">Date Received:</label>
+                <input type="date" name="search_date" id="search_date" value="{{ current_filters.search_date or '' }}">
+            </div>
+            <div class="filter-group" style="flex-basis: auto;">
+                <button type="submit" class="action-button" style="background-color: #007bff; margin-top:0; margin-bottom:0; padding-top: 8px; padding-bottom: 8px;">Apply Filters</button>
+            </div>
+            {% if current_filters.search_stock_order or current_filters.search_gpc or current_filters.search_booking_id or current_filters.search_date %}
+                <div class="filter-group" style="min-width: auto; flex-basis: auto;">
+                    <a href="{{ url_for('part_type_details', part_type_id=part_type_info.id) }}" class="clear-filter">(Clear Filters)</a>
+                </div>
+            {% endif %}
+        </form>
+    </div>
+
+
+
+    <h2>Individual Items in Stock</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Item ID</th>
+                <th>GPCNumber (Klantnummer)</th>
+                <th>Status</th>
+                <th class="age-col">Dagen in Voorraad</th>
+                <th class="number-col">Stock Order No.</th>
+                <th>Booked For (ID)</th>
+                <th>Date Received</th>
+                <th>Last Updated</th>
+                <th>Notes</th>
+                <th>Item Serial No.</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if items %}
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.item_id }}</td>
+                    <td class="number-col">
+                        {% if item.booking_id and item.booking_gpc_number %}
+                            {{ item.booking_gpc_number }}
+                        {% elif item.booking_id %}
+                            (GPC onbekend)
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td><span class="status-{{ item.item_status }}">{{ item.item_status }}</span></td>
+                    <td class="age-col">{{ item.days_in_stock }}</td>
+                    <td class="number-col">{{ item.stock_order_number | default('-', true) }}</td>
+                    <td>
+                        {% if item.booking_id %}
+                            <a href="{{ url_for('edit_booking_form', booking_id=item.booking_id) }}">
+                                {{ item.booking_customer | default('') }} (Boeking ID: {{ item.booking_id }})
+                            </a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>{{ item.date_received[:16] if item.date_received else '-' }}</td>
+                    <td>{{ item.last_updated[:16] if item.last_updated else '-' }}</td>
+                    <td>{{ item.item_notes | default('', true) }}</td>
+                    <td class="number-col">{{ item.serial_number | default('-', true) }}</td>
+                    <td>
+                        <form class="status-form" action="{{ url_for('update_item_status', item_id=item.item_id) }}" method="POST">
+                            <input type="hidden" name="return_url" value="{{ return_url }}">
+                            <select name="new_status">
+                                {% for status_option in allowed_item_statuses %}
+                                <option value="{{ status_option }}" {% if status_option == item.item_status %}selected disabled hidden{% endif %}>
+                                    {{ status_option }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit">Set</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr class="no-results"><td colspan="11">No individual items found for this part type matching the current filters. <a href="{{ url_for('part_type_details', part_type_id=part_type_info.id) }}">Clear filters</a> or <a href="{{ url_for('receive_stock_form') }}">Receive stock</a> for this part.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</body>
+</html>
